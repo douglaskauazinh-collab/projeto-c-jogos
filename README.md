@@ -1,15 +1,13 @@
 # 👋 Bem-vindo ao meu GitHub!
 
-Olá! Sou **Douglas Kauã Zinh**, estudante de **Engenharia da Computação** apaixonado por desenvolvimento de software e resolução de problemas através da programação.
+Olá! Sou Kauã douglas, estudante de Engenharia da Computação.
 
 ---
 
 ## 🎓 Sobre Mim
 
 - 🎯 Estudante de **Engenharia da Computação**
-- 💻 Desenvolvedor em formação com foco em **linguagem C** e desenvolvimento de sistemas
-- 🚀 Aprendendo e evoluindo constantemente
-- 🎮 Interessado em desenvolvimento de jogos e aplicações interativas
+- 💻 Desenvolvedor em formação com foco em **linguagem C** 
 
 ---
 
@@ -24,7 +22,7 @@ Sistemas    ████████░░ 80%
 
 - **Linguagens**: C
 - **Ferramentas**: Git, GitHub, Terminal/Shell
-- **Foco**: Desenvolvimento de sistemas, algoritmos, estruturas de dados
+
 
 ---
 
