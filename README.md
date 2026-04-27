@@ -22,8 +22,6 @@ O usuário pode escolher entre diferentes opções através de um menu, tornando
 #### Sobre o projeto
 Este projeto foi desenvolvido na disciplina de programação. A proposta busca aplicar, na prática, conceitos de programação, lógica e resolução de problemas.
 
-Objetivos
-
 
 #### Objetivos
 O projeto tem como foco o desenvolvimento das seguintes competências:
