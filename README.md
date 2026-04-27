@@ -14,10 +14,10 @@ O usuário pode escolher entre diferentes opções através de um menu, tornando
 
 ####  Funcionalidades
 
-- ** Pergunta e Resposta** - Um mini jogo de perguntas onde o usuário testa seus conhecimentos.
-- ** Cobra na Caixa** - Um jogo de sorte onde o jogador deve escolher caixas sem encontrar a cobra.
-- ** Gousmas War** - Um jogo para dois jogadores baseado em estratégia, onde cada jogador controla suas "gousmas" e tenta derrotar o adversário.
-- ** Sair** - Encerra o programa.
+-  Pergunta e Resposta - Um mini jogo de perguntas onde o usuário testa seus conhecimentos.
+- Cobra na Caixa - Um jogo de sorte onde o jogador deve escolher caixas sem encontrar a cobra.
+-  Gousmas War - Um jogo para dois jogadores baseado em estratégia, onde cada jogador controla suas "gousmas" e tenta derrotar o adversário.
+-  Sair - Encerra o programa.
 
 #### Sobre o projeto
 Este projeto foi desenvolvido na disciplina de programação. A proposta busca aplicar, na prática, conceitos de programação, lógica e resolução de problemas.
