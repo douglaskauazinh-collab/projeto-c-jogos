@@ -2,29 +2,7 @@
 
 Olá! Sou Kauã douglas, estudante de Engenharia da Computação.
 
----
 
-## 🎓 Sobre Mim
-
-- 🎯 Estudante de **Engenharia da Computação**
-- 💻 Desenvolvedor em formação com foco em **linguagem C** 
-
----
-
-## 🛠️ Linguagens & Tecnologias
-
-```
-C           ████████░░ 80%
-Git         ██████░░░░ 60%
-Terminal    ██████░░░░ 60%
-Sistemas    ████████░░ 80%
-```
-
-- **Linguagens**: C
-
-
-
----
 
 ## 🎮 Meus Projetos em Destaque
 
