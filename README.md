@@ -12,6 +12,9 @@ Um programa desenvolvido em **linguagem C** que reúne vários **mini jogos** em
 
 O usuário pode escolher entre diferentes opções através de um menu, tornando a experiência simples e dinâmica.
 
+#### Integrantes 
+Kauã Douglas
+
 ####  Funcionalidades
 
 -  Pergunta e Resposta - Um mini jogo de perguntas onde o usuário testa seus conhecimentos.
