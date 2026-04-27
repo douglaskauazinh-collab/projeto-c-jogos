@@ -21,7 +21,7 @@ Sistemas    ████████░░ 80%
 ```
 
 - **Linguagens**: C
-- **Ferramentas**: Git, GitHub, Terminal/Shell
+
 
 
 ---
@@ -283,26 +283,6 @@ int main() {
 
 ---
 
-## 💬 Vamos nos Conectar?
-
-Sinta-se à vontade para explorar meus repositórios e contribuir com sugestões e feedback!
-
-- 📌 GitHub: [@douglaskauazinh-collab](https://github.com/douglaskauazinh-collab)
-- 📌 Perfil: [@douglaskauazinh-collabFirst](https://github.com/douglaskauazinh-collabFirst)
-
----
-
-## ⚡ Fun Facts
-
-- 🎯 Apaixonado por desafios de programação
-- 💡 Sempre buscando aprender algo novo
-- 🎮 Gosto de criar experiências interativas
-
----
-
-**⭐ Se você gostou de algum projeto, considere deixar uma estrela! ⭐**
-
-```
 ╔═══════════════════════════════════════╗
 ║  Obrigado pela visita! Happy Coding!  ║
 ╚═══════════════════════════════════════╝
