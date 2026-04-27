@@ -39,6 +39,9 @@ Além do código-fonte, o projeto também exige um repositório no GitHub com RE
 - Linguagem C
 - Biblioteca padrão (stdio.h, stdlib.h, time.h)
 - Sistema via Terminal
+- Manipulação de variáveis e entrada de dados
+- Inteligência Artificial para Direcionamento de Ideias e Organização
+
 
 ---
 
