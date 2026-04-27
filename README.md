@@ -4,22 +4,30 @@ Olá! Sou Kauã douglas, estudante de Engenharia da Computação.
 
 
 
-## 🎮 Meus Projetos em Destaque
+##  Meus Projetos em Destaque
 
-### 🕹️ [Projeto C - Jogos](https://github.com/douglaskauazinh-collab/projeto-c-jogos)
+###  [Projeto C - Jogos](https://github.com/douglaskauazinh-collab/projeto-c-jogos)
 
 Um programa desenvolvido em **linguagem C** que reúne vários **mini jogos** em um único sistema interativo via terminal.
 
 O usuário pode escolher entre diferentes opções através de um menu, tornando a experiência simples e dinâmica.
 
-#### 🕹️ Funcionalidades
+####  Funcionalidades
 
 - **❓ Pergunta e Resposta** - Um mini jogo de perguntas onde o usuário testa seus conhecimentos.
 - **🐍 Cobra na Caixa** - Um jogo de sorte onde o jogador deve escolher caixas sem encontrar a cobra.
 - **⚔️ Gousmas War** - Um jogo para dois jogadores baseado em estratégia, onde cada jogador controla suas "gousmas" e tenta derrotar o adversário.
 - **🚪 Sair** - Encerra o programa.
 
-#### 💡 Tecnologias Utilizadas
+#### Objetivos
+O projeto tem como foco o desenvolvimento das seguintes competências:
+
+Resolução de problemas
+Raciocínio lógico e algorítmico
+Aplicação prática dos conceitos fundamentais de algoritmos
+Além do código-fonte, o projeto também exige um repositório no GitHub com README explicativo e uma apresentação para defesa do sistema desenvolvido.
+
+#### Tecnologias Utilizadas
 
 - Linguagem C
 - Biblioteca padrão (stdio.h, stdlib.h, time.h)
@@ -27,7 +35,7 @@ O usuário pode escolher entre diferentes opções através de um menu, tornando
 
 ---
 
-## 💾 Código Principal
+## Código Principal
 
 Aqui está o código completo que faz todo o projeto funcionar:
 
