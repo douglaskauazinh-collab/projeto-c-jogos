@@ -12,7 +12,7 @@ Um programa desenvolvido em **linguagem C** que reúne vários **mini jogos** em
 
 O usuário pode escolher entre diferentes opções através de um menu, tornando a experiência simples e dinâmica.
 
-#### Integrantes 
+## Integrantes 
 Kauã Douglas
 
 ##  Funcionalidades
@@ -26,7 +26,7 @@ Kauã Douglas
 Este projeto foi desenvolvido na disciplina de programação. A proposta busca aplicar, na prática, conceitos de programação, lógica e resolução de problemas.
 
 
-#### Objetivos
+## Objetivos
 O projeto tem como foco o desenvolvimento das seguintes competências:
 
 Resolução de problemas
@@ -34,7 +34,7 @@ Raciocínio lógico e algorítmico
 Aplicação prática dos conceitos fundamentais de algoritmos
 Além do código-fonte, o projeto também exige um repositório no GitHub com README explicativo e uma apresentação para defesa do sistema desenvolvido.
 
-#### Tecnologias Utilizadas
+## Tecnologias Utilizadas
 
 - Linguagem C
 - Biblioteca padrão (stdio.h, stdlib.h, time.h)
