@@ -22,8 +22,8 @@ Kauã Douglas
 -  Gousmas War - Um jogo para dois jogadores baseado em estratégia, onde cada jogador controla suas "gousmas" e tenta derrotar o adversário.
 -  Sair - Encerra o programa.
 
-#### Sobre o projeto
-Este projeto foi desenvolvido na disciplina de programação. A proposta busca aplicar, na prática, conceitos de programação, lógica e resolução de problemas.
+## Sobre o projeto
+Este projeto foi desenvolvido na disciplina de programação. O programa foi estruturado com foco em organização, reutilização de lógica e interação com o usuário, utilizando estruturas de repetição, decisão e geração de números aleatórios.
 
 
 ## Objetivos
