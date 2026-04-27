@@ -15,7 +15,7 @@ O usuário pode escolher entre diferentes opções através de um menu, tornando
 #### Integrantes 
 Kauã Douglas
 
-####  Funcionalidades
+##  Funcionalidades
 
 -  Pergunta e Resposta - Um mini jogo de perguntas onde o usuário testa seus conhecimentos.
 - Cobra na Caixa - Um jogo de sorte onde o jogador deve escolher caixas sem encontrar a cobra.
