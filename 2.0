@@ -1,0 +1,1206 @@
+/*
+ * DUNGEON CRAWLER - "A Lenda das Trevas"
+ * Linguagem: C ANSI (C89/C90) - sem declaracoes dentro de for
+ *
+ * CHECKLIST DE REQUISITOS:
+ * [R01]  Simbolos ASCII corretos para todos os elementos
+ * [R02]  w/a/s/d movem o jogador e alteram simbolo de direcao
+ * [R03]  'i' interage com objeto a frente
+ * [R04]  'o' ataca a celula a frente
+ * [R05]  Sem movimentacao diagonal
+ * [R06]  Jogador possui 3 vidas
+ * [R07]  Colisao com espinho/monstro -> perde vida e reinicia fase
+ * [R08]  0 vidas -> Game Over -> menu principal
+ * [R09]  Monstro Tipo 1 (X): movimento aleatorio
+ * [R10]  Monstro Tipo 2 (Y): perseguicao simples sem desvio
+ * [R11]  Boss Final (Z): comportamento unico (orbital + dash)
+ * [R12]  Menu -> Jogar
+ * [R13]  Menu -> Tutorial
+ * [R14]  Menu -> Sair (com creditos)
+ * [R15]  Vila: 1 NPC com escolha de 1 entre 3 armas
+ * [R16]  Vila: entrada da masmorra visivel e acessivel
+ * [R17]  Espada: ataca regiao 3x2 a frente (4 direcoes)
+ * [R18]  Arco e Flecha: ataca 4 celulas em linha reta
+ * [R19]  Cajado: ataca 8 celulas adjacentes
+ * [R20]  Arma persiste por toda a partida
+ * [R21]  1o Andar: ensina mover, usar chave, destruir caixa
+ * [R22]  1o Andar: 1 chave e 1 porta fechada
+ * [R23]  1o Andar: minimo 1 caixa
+ * [R24]  1o Andar: escada acessivel so apos resolver desafio
+ * [R25]  2o Andar: tutorial espinhos, Monstro1, botoes
+ * [R26]  2o Andar: 2 chaves e 2 portas fechadas
+ * [R27]  2o Andar: minimo 1 espinho
+ * [R28]  2o Andar: minimo 1 botao com efeito
+ * [R29]  2o Andar: minimo 1 Monstro Tipo 1
+ * [R30]  2o Andar: escada acessivel so apos resolver desafio
+ * [R31]  3o Andar: 3 chaves e 3 portas fechadas
+ * [R32]  3o Andar: minimo 1 Monstro Tipo 2
+ * [R33]  3o Andar: Boss Final com comportamento unico
+ * [R34]  3o Andar: integra todos os elementos anteriores
+ * [R35]  Tela de vitoria com conclusao da historia
+ */
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+
+/* ============================================================
+ *  CONSTANTES
+ * ============================================================ */
+#define MAX_ROWS     25
+#define MAX_COLS     25
+#define MAX_MONSTERS 20
+
+/* Simbolos [R01] */
+#define SYM_WALL          '*'
+#define SYM_THORN         '#'
+#define SYM_BOX           'k'
+#define SYM_BUTTON        'O'
+#define SYM_DOOR_CLOSED   'D'
+#define SYM_DOOR_OPEN     '='
+#define SYM_KEY           '@'
+#define SYM_LADDER        'L'
+#define SYM_MON1          'X'
+#define SYM_MON2          'Y'
+#define SYM_BOSS          'Z'
+#define SYM_EMPTY         '.'
+#define SYM_NPC           'N'
+#define SYM_DUNGEON_ENTRY 'E'
+
+/* Direcoes [R02] */
+#define DIR_UP    '^'
+#define DIR_DOWN  'v'
+#define DIR_LEFT  '<'
+#define DIR_RIGHT '>'
+
+/* Armas [R17-R19] */
+#define WEAPON_NONE  0
+#define WEAPON_SWORD 1
+#define WEAPON_BOW   2
+#define WEAPON_STAFF 3
+
+/* Fases */
+#define PHASE_MENU    0
+#define PHASE_VILA    1
+#define PHASE_FLOOR1  2
+#define PHASE_FLOOR2  3
+#define PHASE_FLOOR3  4
+#define PHASE_GAMEOVER 5
+#define PHASE_WIN     6
+
+/* ============================================================
+ *  ESTRUTURAS
+ * ============================================================ */
+typedef struct {
+    int row, col;
+    char dir;
+    int lives;   /* [R06] */
+    int weapon;  /* [R20] */
+    int has_key;
+} Player;
+
+typedef struct {
+    int row, col;
+    char type;
+    int alive;
+    int hp;
+    int orbit_angle; /* boss [R11] */
+    int orbit_phase;
+    int dash_timer;
+} Monster;
+
+typedef struct {
+    int rows, cols;
+    char grid[MAX_ROWS][MAX_COLS];
+    char display[MAX_ROWS][MAX_COLS];
+    Monster monsters[MAX_MONSTERS];
+    int num_monsters;
+    int keys_needed;
+    int doors_opened;
+    int buttons_pressed;
+    int button2_pressed;
+    int ladder_locked;
+    int boss_defeated;
+    int button_row,  button_col;
+    int secret_row,  secret_col;
+    int button2_row, button2_col;
+    int secret2_row, secret2_col;
+} GameMap;
+
+/* ============================================================
+ *  VARIAVEIS GLOBAIS
+ * ============================================================ */
+static Player  player;
+static GameMap gmap;
+static int     current_phase;
+static int     game_running;
+
+/* Estado salvo para reinicio de fase [R07] */
+static char    saved_grid[MAX_ROWS][MAX_COLS];
+static Player  saved_player;
+static Monster saved_monsters[MAX_MONSTERS];
+static int     saved_num_monsters;
+
+/* ============================================================
+ *  UTILITARIOS
+ * ============================================================ */
+static void clear_screen(void)
+{
+    printf("\033[2J\033[H");
+    fflush(stdout);
+}
+
+static void press_enter(void)
+{
+    int c;
+    printf("\n[Pressione ENTER para continuar...]");
+    fflush(stdout);
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+static char get_char(void)
+{
+    int c = getchar();
+    int t;
+    while ((t = getchar()) != '\n' && t != EOF);
+    return (char)c;
+}
+
+static void get_front_cell(int *fr, int *fc)
+{
+    *fr = player.row;
+    *fc = player.col;
+    switch (player.dir) {
+        case DIR_UP:    (*fr)--; break;
+        case DIR_DOWN:  (*fr)++; break;
+        case DIR_LEFT:  (*fc)--; break;
+        case DIR_RIGHT: (*fc)++; break;
+    }
+}
+
+static int in_bounds(int r, int c)
+{
+    return r >= 0 && r < gmap.rows && c >= 0 && c < gmap.cols;
+}
+
+static int is_walkable(int r, int c)
+{
+    char cell;
+    if (!in_bounds(r, c)) return 0;
+    cell = gmap.grid[r][c];
+    return cell != SYM_WALL && cell != SYM_BOX &&
+           cell != SYM_DOOR_CLOSED && cell != SYM_BUTTON;
+}
+
+static int abs_val(int x)
+{
+    return x < 0 ? -x : x;
+}
+
+/* ============================================================
+ *  SAVE / RESTORE [R07]
+ * ============================================================ */
+static void save_phase_state(void)
+{
+    memcpy(saved_grid, gmap.grid, sizeof(gmap.grid));
+    saved_player = player;
+    saved_num_monsters = gmap.num_monsters;
+    memcpy(saved_monsters, gmap.monsters, sizeof(gmap.monsters));
+}
+
+static void restore_phase_state(void)
+{
+    int lives  = player.lives;
+    int weapon = player.weapon;
+    int r, c;
+
+    memcpy(gmap.grid, saved_grid, sizeof(gmap.grid));
+    player = saved_player;
+    player.lives  = lives;
+    player.weapon = weapon;
+    gmap.num_monsters = saved_num_monsters;
+    memcpy(gmap.monsters, saved_monsters, sizeof(gmap.monsters));
+
+    gmap.keys_needed    = 0;
+    gmap.doors_opened   = 0;
+    gmap.buttons_pressed = 0;
+    gmap.button2_pressed = 0;
+    gmap.ladder_locked  = 1;
+    player.has_key = 0;
+
+    for (r = 0; r < gmap.rows; r++)
+        for (c = 0; c < gmap.cols; c++)
+            if (gmap.grid[r][c] == SYM_KEY)
+                gmap.keys_needed++;
+}
+
+/* ============================================================
+ *  CONSTRUCAO DOS MAPAS
+ * ============================================================ */
+static void init_map(int rows, int cols)
+{
+    int r, c;
+    gmap.rows = rows;
+    gmap.cols = cols;
+    gmap.num_monsters    = 0;
+    gmap.keys_needed     = 0;
+    gmap.doors_opened    = 0;
+    gmap.buttons_pressed = 0;
+    gmap.button2_pressed = 0;
+    gmap.ladder_locked   = 1;
+    gmap.boss_defeated   = 0;
+    gmap.button_row  = -1; gmap.button_col  = -1;
+    gmap.secret_row  = -1; gmap.secret_col  = -1;
+    gmap.button2_row = -1; gmap.button2_col = -1;
+    gmap.secret2_row = -1; gmap.secret2_col = -1;
+    player.has_key = 0;
+
+    for (r = 0; r < rows; r++)
+        for (c = 0; c < cols; c++) {
+            if (r == 0 || r == rows-1 || c == 0 || c == cols-1)
+                gmap.grid[r][c] = SYM_WALL;
+            else
+                gmap.grid[r][c] = SYM_EMPTY;
+        }
+}
+
+static void place(int r, int c, char sym)
+{
+    gmap.grid[r][c] = sym;
+}
+
+static void add_monster(int r, int c, char type)
+{
+    int i = gmap.num_monsters;
+    if (i >= MAX_MONSTERS) return;
+    gmap.monsters[i].row          = r;
+    gmap.monsters[i].col          = c;
+    gmap.monsters[i].type         = type;
+    gmap.monsters[i].alive        = 1;
+    gmap.monsters[i].hp           = (type == SYM_BOSS) ? 5 : 1;
+    gmap.monsters[i].orbit_angle  = 0;
+    gmap.monsters[i].orbit_phase  = 0;
+    gmap.monsters[i].dash_timer   = 0;
+    gmap.num_monsters++;
+}
+
+/* ---- VILA (10x10) [R15, R16] ---- */
+static void build_vila(void)
+{
+    init_map(10, 10);
+    place(2, 3, SYM_WALL); place(2, 4, SYM_WALL);
+    place(2, 5, SYM_WALL); place(2, 6, SYM_WALL);
+    place(5, 1, SYM_WALL); place(5, 2, SYM_WALL);
+    place(5, 7, SYM_WALL); place(5, 8, SYM_WALL);
+    place(4, 4, SYM_NPC);           /* [R15] NPC */
+    place(8, 5, SYM_DUNGEON_ENTRY); /* [R16] entrada masmorra */
+
+    player.row    = 2;
+    player.col    = 2;
+    player.dir    = DIR_DOWN;
+    player.lives  = 3;
+    player.weapon = WEAPON_NONE;
+    player.has_key = 0;
+    gmap.ladder_locked = 0;
+}
+
+/* ---- 1o ANDAR (10x10) [R21-R24] ---- */
+static void build_floor1(void)
+{
+    int c;
+    init_map(10, 10);
+
+    for (c = 3; c <= 7; c++) place(4, c, SYM_WALL);
+    place(4, 5, SYM_DOOR_CLOSED); /* [R22] porta */
+
+    place(2, 2, SYM_WALL);
+    place(2, 7, SYM_WALL);
+
+    place(2, 5, SYM_KEY);  /* [R22] chave */
+    place(3, 3, SYM_BOX);  /* [R23] caixas */
+    place(3, 4, SYM_BOX);
+    place(6, 5, SYM_LADDER);
+    place(5, 5, SYM_WALL); /* bloqueia escada ate porta abrir [R24] */
+
+    player.row = 1;
+    player.col = 5;
+    player.dir = DIR_DOWN;
+    player.has_key = 0;
+
+    gmap.keys_needed  = 1;
+    gmap.ladder_locked = 1;
+
+    save_phase_state();
+}
+
+/* ---- 2o ANDAR (15x15) [R25-R30] ---- */
+static void build_floor2(void)
+{
+    int c;
+    init_map(15, 15);
+
+    for (c = 1; c <= 13; c++) place(4, c, SYM_WALL);
+    place(4, 7, SYM_DOOR_CLOSED);  /* [R26] 1a porta */
+
+    place(6, 3,  SYM_THORN); /* [R27] espinhos */
+    place(6, 5,  SYM_THORN);
+    place(6, 9,  SYM_THORN);
+    place(6, 11, SYM_THORN);
+
+    for (c = 1; c <= 13; c++) place(9, c, SYM_WALL);
+    place(9, 4, SYM_DOOR_CLOSED);  /* [R26] 2a porta */
+
+    place(11, 7, SYM_BUTTON); /* [R28] botao 1: abre passagem para 2a chave */
+    gmap.button_row = 11; gmap.button_col = 7;
+    place(11, 10, SYM_WALL);
+    place(11, 11, SYM_WALL);
+    gmap.secret_row = 11; gmap.secret_col = 10;
+
+    place(2,  7, SYM_KEY);  /* [R26] 1a chave */
+    place(11, 12, SYM_KEY); /* [R26] 2a chave (atras da parede) */
+    gmap.keys_needed = 2;
+
+    place(3, 3, SYM_BOX);
+    place(3, 11, SYM_BOX);
+
+    add_monster(7, 7, SYM_MON1); /* [R29] Monstro Tipo 1 */
+    add_monster(7, 3, SYM_MON1);
+
+    place(13, 13, SYM_LADDER);
+    place(12, 13, SYM_WALL); /* bloqueia escada [R30] */
+    place(13, 12, SYM_WALL);
+
+    place(12, 7, SYM_BUTTON); /* botao 2: desbloqueia escada */
+    gmap.button2_row = 12; gmap.button2_col = 7;
+    gmap.secret2_row = 12; gmap.secret2_col = 13;
+
+    player.row = 1;
+    player.col = 7;
+    player.dir = DIR_DOWN;
+    player.has_key = 0;
+    gmap.ladder_locked = 1;
+
+    save_phase_state();
+}
+
+/* ---- 3o ANDAR (25x25) [R31-R34] ---- */
+static void build_floor3(void)
+{
+    int c;
+    init_map(25, 25);
+
+    /* Sala 1 */
+    for (c = 1; c <= 23; c++) place(6, c, SYM_WALL);
+    place(6, 5, SYM_DOOR_CLOSED); /* [R31] 1a porta */
+    place(2, 5, SYM_KEY);
+    place(3, 10, SYM_THORN); /* [R34] espinhos */
+    place(3, 14, SYM_THORN);
+    place(4, 12, SYM_BOX);   /* [R34] caixa */
+
+    /* Sala 2 */
+    for (c = 1; c <= 23; c++) place(13, c, SYM_WALL);
+    place(13, 18, SYM_DOOR_CLOSED); /* [R31] 2a porta */
+    place(8,  20, SYM_KEY);
+    place(9,  5,  SYM_THORN); place(9,  7,  SYM_THORN);
+    place(9,  9,  SYM_THORN); place(9,  11, SYM_THORN);
+    place(10, 20, SYM_BOX);   place(10, 21, SYM_BOX);
+    add_monster(9,  15, SYM_MON1); /* [R34] Monstro Tipo 1 */
+    add_monster(9,  3,  SYM_MON2); /* [R32] Monstro Tipo 2 */
+    place(10, 10, SYM_BUTTON); /* [R34] botao */
+    gmap.button_row = 10; gmap.button_col = 10;
+    place(12, 15, SYM_WALL);
+    gmap.secret_row = 12; gmap.secret_col = 15;
+
+    /* Sala 3 - arena do boss */
+    for (c = 3; c <= 21; c++) place(14, c, SYM_WALL);
+    place(14, 12, SYM_DOOR_CLOSED); /* [R31] 3a porta */
+    place(15, 20, SYM_KEY);
+    place(17, 5,  SYM_WALL); place(17, 6,  SYM_WALL); /* pilares */
+    place(17, 18, SYM_WALL); place(17, 19, SYM_WALL);
+    place(20, 5,  SYM_WALL); place(20, 6,  SYM_WALL);
+    place(20, 18, SYM_WALL); place(20, 19, SYM_WALL);
+    place(19, 10, SYM_THORN); place(19, 14, SYM_THORN);
+    add_monster(20, 12, SYM_BOSS);  /* [R33] Boss */
+    add_monster(16, 18, SYM_MON2); /* [R32] 2o Monstro Tipo 2 */
+
+    gmap.keys_needed = 3;
+
+    player.row = 1;
+    player.col = 12;
+    player.dir = DIR_DOWN;
+    player.has_key = 0;
+    gmap.ladder_locked = 1;
+
+    save_phase_state();
+}
+
+/* ============================================================
+ *  RENDERIZACAO
+ * ============================================================ */
+static void render_hud(void)
+{
+    int i;
+    printf("=== A LENDA DAS TREVAS ===\n");
+    printf("Vidas: ");
+    for (i = 0; i < player.lives; i++) printf("<3 ");
+    for (i = player.lives; i < 3; i++) printf("-- ");
+    printf("  Arma: ");
+    switch (player.weapon) {
+        case WEAPON_SWORD: printf("Espada");        break;
+        case WEAPON_BOW:   printf("Arco e Flecha"); break;
+        case WEAPON_STAFF: printf("Cajado");        break;
+        default:           printf("Nenhuma");       break;
+    }
+    printf("  Chaves: %d\n", player.has_key);
+    switch (current_phase) {
+        case PHASE_VILA:   printf("Local: Vila\n");                  break;
+        case PHASE_FLOOR1: printf("Local: Masmorra - 1o Andar\n");   break;
+        case PHASE_FLOOR2: printf("Local: Masmorra - 2o Andar\n");   break;
+        case PHASE_FLOOR3: printf("Local: Masmorra - 3o Andar\n");   break;
+    }
+    printf("Controles: w/a/s/d=mover  i=interagir  o=atacar  q=sair\n");
+    printf("-------------------------------\n");
+}
+
+static void render_map(void)
+{
+    int r, c, i;
+    char ch;
+
+    memcpy(gmap.display, gmap.grid, sizeof(gmap.grid));
+
+    for (i = 0; i < gmap.num_monsters; i++) {
+        Monster *m = &gmap.monsters[i];
+        if (m->alive && in_bounds(m->row, m->col))
+            gmap.display[m->row][m->col] = m->type;
+    }
+    gmap.display[player.row][player.col] = player.dir;
+
+    for (r = 0; r < gmap.rows; r++) {
+        for (c = 0; c < gmap.cols; c++) {
+            ch = gmap.display[r][c];
+            printf("%c ", (ch == SYM_EMPTY) ? ' ' : ch);
+        }
+        printf("\n");
+    }
+}
+
+static void render_game(void)
+{
+    clear_screen();
+    render_hud();
+    render_map();
+}
+
+/* ============================================================
+ *  ATAQUE [R17, R18, R19]
+ * ============================================================ */
+static void damage_cell(int r, int c)
+{
+    int i;
+    Monster *m;
+    if (!in_bounds(r, c)) return;
+
+    if (gmap.grid[r][c] == SYM_BOX) {
+        gmap.grid[r][c] = SYM_EMPTY;
+        printf("[Caixa destruida!]\n");
+        return;
+    }
+    for (i = 0; i < gmap.num_monsters; i++) {
+        m = &gmap.monsters[i];
+        if (m->alive && m->row == r && m->col == c) {
+            m->hp--;
+            if (m->hp <= 0) {
+                m->alive = 0;
+                if (m->type == SYM_BOSS) {
+                    gmap.boss_defeated = 1;
+                    gmap.ladder_locked = 0;
+                    place(22, 12, SYM_LADDER);
+                    printf("[BOSS DERROTADO! Uma escada aparece!]\n");
+                } else {
+                    printf("[Monstro eliminado!]\n");
+                }
+            } else {
+                printf("[Boss resistiu! HP restante: %d]\n", m->hp);
+            }
+            return;
+        }
+    }
+}
+
+/* [R17] Espada: 3x2 a frente */
+static void attack_sword(void)
+{
+    int dr, dc;
+    switch (player.dir) {
+        case DIR_UP:
+            for (dr = 1; dr <= 2; dr++)
+                for (dc = -1; dc <= 1; dc++)
+                    damage_cell(player.row - dr, player.col + dc);
+            break;
+        case DIR_DOWN:
+            for (dr = 1; dr <= 2; dr++)
+                for (dc = -1; dc <= 1; dc++)
+                    damage_cell(player.row + dr, player.col + dc);
+            break;
+        case DIR_LEFT:
+            for (dc = 1; dc <= 2; dc++)
+                for (dr = -1; dr <= 1; dr++)
+                    damage_cell(player.row + dr, player.col - dc);
+            break;
+        case DIR_RIGHT:
+            for (dc = 1; dc <= 2; dc++)
+                for (dr = -1; dr <= 1; dr++)
+                    damage_cell(player.row + dr, player.col + dc);
+            break;
+    }
+}
+
+/* [R18] Arco e Flecha: 4 celulas em linha reta */
+static void attack_bow(void)
+{
+    int i, tr, tc;
+    for (i = 1; i <= 4; i++) {
+        tr = player.row;
+        tc = player.col;
+        switch (player.dir) {
+            case DIR_UP:    tr -= i; break;
+            case DIR_DOWN:  tr += i; break;
+            case DIR_LEFT:  tc -= i; break;
+            case DIR_RIGHT: tc += i; break;
+        }
+        if (!in_bounds(tr, tc) || gmap.grid[tr][tc] == SYM_WALL) break;
+        damage_cell(tr, tc);
+    }
+}
+
+/* [R19] Cajado: 8 celulas adjacentes */
+static void attack_staff(void)
+{
+    int i;
+    int dr[] = {-1,-1,-1, 0, 0, 1, 1, 1};
+    int dc[] = {-1, 0, 1,-1, 1,-1, 0, 1};
+    for (i = 0; i < 8; i++)
+        damage_cell(player.row + dr[i], player.col + dc[i]);
+}
+
+static void do_attack(void)
+{
+    if (player.weapon == WEAPON_NONE) {
+        printf("[Sem arma equipada!]\n");
+        return;
+    }
+    switch (player.weapon) {
+        case WEAPON_SWORD: attack_sword(); break;
+        case WEAPON_BOW:   attack_bow();   break;
+        case WEAPON_STAFF: attack_staff(); break;
+    }
+}
+
+/* ============================================================
+ *  INTERACAO [R03]
+ * ============================================================ */
+static void do_interact(void)
+{
+    int fr, fc;
+    char cell;
+    char ch;
+    get_front_cell(&fr, &fc);
+    if (!in_bounds(fr, fc)) return;
+    cell = gmap.grid[fr][fc];
+
+    /* NPC [R15] */
+    if (cell == SYM_NPC) {
+        if (player.weapon != WEAPON_NONE) {
+            printf("[Voce ja possui uma arma.]\n");
+            return;
+        }
+        clear_screen();
+        printf("=== FERREIRO ALDRIC ===\n");
+        printf("\"Aventureiro! Escolha sua arma:\"\n\n");
+        printf("1. Espada        - Ataca regiao 3x2 a frente\n");
+        printf("2. Arco e Flecha - Ataca 4 celulas em linha reta\n");
+        printf("3. Cajado        - Ataca as 8 celulas ao redor\n\n");
+        printf("Escolha (1/2/3): ");
+        fflush(stdout);
+        ch = get_char();
+        switch (ch) {
+            case '1': player.weapon = WEAPON_SWORD; printf("[Espada equipada!]\n");        break;
+            case '2': player.weapon = WEAPON_BOW;   printf("[Arco e Flecha equipado!]\n"); break;
+            case '3': player.weapon = WEAPON_STAFF; printf("[Cajado equipado!]\n");        break;
+            default:  printf("[Escolha invalida.]\n"); return;
+        }
+        press_enter();
+        return;
+    }
+
+    /* Chave */
+    if (cell == SYM_KEY) {
+        gmap.grid[fr][fc] = SYM_EMPTY;
+        player.has_key++;
+        printf("[Chave coletada! Voce tem %d chave(s).]\n", player.has_key);
+        return;
+    }
+
+    /* Porta fechada */
+    if (cell == SYM_DOOR_CLOSED) {
+        if (player.has_key > 0) {
+            gmap.grid[fr][fc] = SYM_DOOR_OPEN;
+            player.has_key--;
+            gmap.doors_opened++;
+            printf("[Porta aberta!]\n");
+
+            /* 1o andar: remove parede que bloqueava escada [R24] */
+            if (current_phase == PHASE_FLOOR1) {
+                place(5, 5, SYM_EMPTY);
+                gmap.ladder_locked = 0;
+                printf("[O caminho para a escada foi aberto!]\n");
+            }
+            /* 2o andar: avisa progresso [R30] */
+            if (current_phase == PHASE_FLOOR2 && gmap.doors_opened >= 2)
+                printf("[Todas as portas abertas! Encontre o botao da escada.]\n");
+            /* 3o andar */
+            if (current_phase == PHASE_FLOOR3 && gmap.doors_opened >= 3)
+                printf("[Todas as portas abertas! Enfrente o boss!]\n");
+        } else {
+            printf("[Precisa de uma chave!]\n");
+        }
+        return;
+    }
+
+    /* Botao [R28] */
+    if (cell == SYM_BUTTON) {
+        if (fr == gmap.button_row && fc == gmap.button_col && !gmap.buttons_pressed) {
+            gmap.buttons_pressed = 1;
+            if (in_bounds(gmap.secret_row, gmap.secret_col)) {
+                gmap.grid[gmap.secret_row][gmap.secret_col] = SYM_EMPTY;
+                if (current_phase == PHASE_FLOOR2 &&
+                    in_bounds(gmap.secret_row, gmap.secret_col + 1))
+                    gmap.grid[gmap.secret_row][gmap.secret_col + 1] = SYM_EMPTY;
+            }
+            printf("[Botao pressionado! Uma passagem foi aberta!]\n");
+        } else if (fr == gmap.button2_row && fc == gmap.button2_col && !gmap.button2_pressed) {
+            gmap.button2_pressed = 1;
+            if (in_bounds(gmap.secret2_row, gmap.secret2_col)) {
+                gmap.grid[gmap.secret2_row][gmap.secret2_col] = SYM_EMPTY;
+                gmap.grid[13][12] = SYM_EMPTY;
+            }
+            if (gmap.doors_opened >= 2) {
+                gmap.ladder_locked = 0;
+                printf("[Escada desbloqueada!]\n");
+            } else {
+                printf("[Botao ativado! Abra as portas primeiro.]\n");
+            }
+        } else {
+            printf("[Botao ja pressionado.]\n");
+        }
+        return;
+    }
+
+    /* Entrada da masmorra [R16] */
+    if (cell == SYM_DUNGEON_ENTRY) {
+        if (player.weapon == WEAPON_NONE) {
+            printf("[Fale com o ferreiro antes de entrar!]\n");
+        } else {
+            printf("[Entrando na masmorra...]\n");
+            current_phase = PHASE_FLOOR1;
+            build_floor1();
+        }
+        return;
+    }
+
+    /* Escada [R24] */
+    if (cell == SYM_LADDER) {
+        if (gmap.ladder_locked) {
+            printf("[Escada bloqueada! Resolva o desafio primeiro.]\n");
+        } else {
+            if (current_phase == PHASE_FLOOR1) {
+                current_phase = PHASE_FLOOR2;
+                build_floor2();
+            } else if (current_phase == PHASE_FLOOR2) {
+                current_phase = PHASE_FLOOR3;
+                build_floor3();
+            } else if (current_phase == PHASE_FLOOR3) {
+                current_phase = PHASE_WIN;
+            }
+        }
+        return;
+    }
+
+    printf("[Nada para interagir aqui.]\n");
+}
+
+/* ============================================================
+ *  MOVIMENTO [R02, R05]
+ * ============================================================ */
+static void check_player_damage(void)
+{
+    int i;
+    Monster *m;
+    char cell = gmap.grid[player.row][player.col];
+
+    /* Espinho [R07] */
+    if (cell == SYM_THORN) {
+        player.lives--;
+        printf("[Pisou em espinho! Vidas: %d]\n", player.lives);
+        if (player.lives <= 0) current_phase = PHASE_GAMEOVER;
+        else restore_phase_state();
+        press_enter();
+        return;
+    }
+
+    /* Monstro [R07] */
+    for (i = 0; i < gmap.num_monsters; i++) {
+        m = &gmap.monsters[i];
+        if (m->alive && m->row == player.row && m->col == player.col) {
+            player.lives--;
+            printf("[Tocou em monstro! Vidas: %d]\n", player.lives);
+            if (player.lives <= 0) current_phase = PHASE_GAMEOVER;
+            else restore_phase_state();
+            press_enter();
+            return;
+        }
+    }
+}
+
+static void move_player(int dr, int dc, char dir)
+{
+    int i, nr, nc;
+    Monster *m;
+    player.dir = dir; /* [R02] atualiza direcao sempre */
+
+    nr = player.row + dr;
+    nc = player.col + dc;
+
+    if (!in_bounds(nr, nc)) return;
+    if (!is_walkable(nr, nc)) return;
+
+    /* Colisao com monstro na celula destino */
+    for (i = 0; i < gmap.num_monsters; i++) {
+        m = &gmap.monsters[i];
+        if (m->alive && m->row == nr && m->col == nc) {
+            player.lives--;
+            printf("[Monstro bloqueou e atacou! Vidas: %d]\n", player.lives);
+            if (player.lives <= 0) current_phase = PHASE_GAMEOVER;
+            else restore_phase_state();
+            press_enter();
+            return;
+        }
+    }
+
+    player.row = nr;
+    player.col = nc;
+    check_player_damage();
+}
+
+/* ============================================================
+ *  IA DOS MONSTROS
+ * ============================================================ */
+
+/* [R09] Monstro Tipo 1: aleatorio */
+static void move_monster_type1(Monster *m)
+{
+    int dr[4], dc[4], i, d, nr, nc, start;
+    dr[0] = -1; dr[1] = 1; dr[2] =  0; dr[3] = 0;
+    dc[0] =  0; dc[1] = 0; dc[2] = -1; dc[3] = 1;
+    start = rand() % 4;
+    for (i = 0; i < 4; i++) {
+        d  = (start + i) % 4;
+        nr = m->row + dr[d];
+        nc = m->col + dc[d];
+        if (!in_bounds(nr, nc)) continue;
+        if (gmap.grid[nr][nc] == SYM_WALL || gmap.grid[nr][nc] == SYM_DOOR_CLOSED)
+            continue;
+        m->row = nr;
+        m->col = nc;
+        break;
+    }
+}
+
+/* [R10] Monstro Tipo 2: perseguicao simples */
+static void move_monster_type2(Monster *m)
+{
+    int dr = player.row - m->row;
+    int dc = player.col - m->col;
+    int nr = m->row;
+    int nc = m->col;
+
+    if (abs_val(dr) >= abs_val(dc))
+        nr = m->row + (dr > 0 ? 1 : -1);
+    else
+        nc = m->col + (dc > 0 ? 1 : -1);
+
+    if (!in_bounds(nr, nc)) return;
+    if (gmap.grid[nr][nc] == SYM_WALL || gmap.grid[nr][nc] == SYM_DOOR_CLOSED) return;
+    m->row = nr;
+    m->col = nc;
+}
+
+/* [R11] Boss: orbital + dash (comportamento unico) */
+static void move_boss(Monster *m)
+{
+    int center_r = 19, center_c = 12;
+    int orbit_r[8], orbit_c[8];
+    int target_r, target_c, dr, dc, nr, nc, step;
+
+    orbit_r[0] = center_r - 3; orbit_c[0] = center_c;
+    orbit_r[1] = center_r - 3; orbit_c[1] = center_c + 3;
+    orbit_r[2] = center_r;     orbit_c[2] = center_c + 3;
+    orbit_r[3] = center_r + 3; orbit_c[3] = center_c + 3;
+    orbit_r[4] = center_r + 3; orbit_c[4] = center_c;
+    orbit_r[5] = center_r + 3; orbit_c[5] = center_c - 3;
+    orbit_r[6] = center_r;     orbit_c[6] = center_c - 3;
+    orbit_r[7] = center_r - 3; orbit_c[7] = center_c - 3;
+
+    if (m->orbit_phase == 0) {
+        /* Fase orbital */
+        target_r = orbit_r[m->orbit_angle];
+        target_c = orbit_c[m->orbit_angle];
+        dr = target_r - m->row;
+        dc = target_c - m->col;
+        nr = m->row;
+        nc = m->col;
+
+        if (dr != 0)      nr = m->row + (dr > 0 ? 1 : -1);
+        else if (dc != 0) nc = m->col + (dc > 0 ? 1 : -1);
+
+        if (in_bounds(nr, nc) && gmap.grid[nr][nc] != SYM_WALL) {
+            m->row = nr;
+            m->col = nc;
+        }
+        if (m->row == target_r && m->col == target_c) {
+            m->orbit_angle = (m->orbit_angle + 1) % 8;
+            m->dash_timer++;
+            if (m->dash_timer >= 4) {
+Indent mode
+
+Spaces
+Indent size
+
+2
+Line wrap mode
+
+No wrap
+Editing 2.0 file contents
+867
+868
+869
+870
+871
+872
+873
+874
+875
+876
+877
+878
+879
+880
+881
+882
+883
+884
+885
+886
+887
+888
+889
+890
+891
+892
+893
+894
+895
+896
+897
+898
+899
+900
+901
+902
+903
+904
+905
+906
+907
+908
+909
+910
+911
+912
+913
+914
+915
+916
+917
+918
+919
+920
+921
+922
+923
+924
+925
+926
+927
+928
+929
+930
+931
+932
+933
+934
+935
+936
+937
+938
+939
+940
+941
+942
+943
+944
+945
+946
+947
+948
+949
+950
+951
+952
+953
+954
+955
+956
+
+                m->orbit_phase = 1;
+                m->dash_timer  = 0;
+            }
+        }
+    } else {
+        /* Fase dash: move 2 celulas em direcao ao jogador */
+        for (step = 0; step < 2; step++) {
+            dr = player.row - m->row;
+            dc = player.col - m->col;
+            nr = m->row;
+            nc = m->col;
+            if (abs_val(dr) >= abs_val(dc) && dr != 0)
+                nr = m->row + (dr > 0 ? 1 : -1);
+            else if (dc != 0)
+                nc = m->col + (dc > 0 ? 1 : -1);
+            else break;
+            if (in_bounds(nr, nc) && gmap.grid[nr][nc] != SYM_WALL) {
+                m->row = nr;
+                m->col = nc;
+            }
+        }
+        m->orbit_phase = 0;
+    }
+}
+
+static void update_monsters(void)
+{
+    int i;
+    Monster *m;
+    for (i = 0; i < gmap.num_monsters; i++) {
+        m = &gmap.monsters[i];
+        if (!m->alive) continue;
+        switch (m->type) {
+            case SYM_MON1: move_monster_type1(m); break;
+            case SYM_MON2: move_monster_type2(m); break;
+            case SYM_BOSS: move_boss(m);          break;
+        }
+        if (m->alive && m->row == player.row && m->col == player.col) {
+            player.lives--;
+            printf("[Monstro te atingiu! Vidas: %d]\n", player.lives);
+            if (player.lives <= 0) current_phase = PHASE_GAMEOVER;
+            else restore_phase_state();
+            press_enter();
+            return;
+        }
+    }
+}
+
+/* ============================================================
+ *  TELAS ESPECIAIS
+ * ============================================================ */
+
+/* [R13] Tutorial */
+static void show_tutorial(void)
+{
+    clear_screen();
+    printf("=== TUTORIAL - A LENDA DAS TREVAS ===\n\n");
+    printf("HISTORIA:\n");
+    printf("O reino de Aeloria foi corrompido por ZOTHRAK,\n");
+    printf("um ser antigo que dorme na Masmorra Esquecida.\n");
+    printf("Voce, o ultimo guardiao, deve descer e derrotá-lo.\n\n");
+    printf("SIMBOLOS:\n");
+    printf("  < ^ > v = Jogador (direcao que esta olhando)\n");
+    printf("  *       = Parede\n");
+    printf("  #       = Espinho (mata ao pisar)\n");
+    printf("  k       = Caixa (destrua com ataque)\n");
+    printf("  O       = Botao (pressione com 'i')\n");
+    printf("  D       = Porta fechada (use chave)\n");
+    printf("  =       = Porta aberta\n");
+    printf("  @       = Chave (colete com 'i')\n");
+    printf("  L       = Escada (proximo andar)\n");
+    printf("  N       = NPC\n");
+    printf("  E       = Entrada da masmorra\n");
+    printf("  X       = Monstro Tipo 1 (aleatorio)\n");
+    printf("  Y       = Monstro Tipo 2 (persegue voce)\n");
+    printf("  Z       = Boss Final\n\n");
+    printf("CONTROLES:\n");
+    printf("  w/a/s/d = Mover\n");
+    printf("  i       = Interagir\n");
+    printf("  o       = Atacar\n");
+    printf("  q       = Sair\n\n");
+    printf("ARMAS:\n");
+    printf("  Espada        = Regiao 3x2 a frente\n");
+    printf("  Arco e Flecha = 4 celulas em linha reta\n");
+    printf("  Cajado        = 8 celulas ao redor\n\n");
+    press_enter();
+}
+
+/* [R14] Creditos */
+static void show_credits(void)
+{
+    clear_screen();
+    printf("=== CREDITOS ===\n\n");
+    printf("A LENDA DAS TREVAS\n");
+    printf("Dungeon Crawler em C (ANSI C89)\n\n");
+    printf("Desenvolvido para a disciplina de\n");
+    printf("Algoritmos e Estruturas de Dados.\n\n");
+    printf("Obrigado por jogar!\n\n");
+    press_enter();
+}
+
+/* [R35] Vitoria */
+static void show_victory(void)
+{
+    clear_screen();
+    printf("========================================\n");
+    printf("           VITORIA! PARABENS!           \n");
+    printf("========================================\n\n");
+    printf("Com um ultimo golpe, ZOTHRAK se desfaz\n");
+    printf("em sombras. O cristal negro explode em\n");
+    printf("luz dourada, purificando a masmorra.\n\n");
+    printf("Voce emerge sob o ceu de Aeloria,\n");
+    printf("mais azul do que nunca.\n\n");
+    printf("Uma crianca grita:\n");
+    printf("  \"O guardiao voltou! O guardiao voltou!\"\n\n");
+    printf("A paz foi restaurada.\n");
+    printf("Sua lenda sera cantada por geracoes.\n\n");
+    printf("              FIM\n\n");
+    press_enter();
+}
+
+/* [R08] Game Over */
+static void show_gameover(void)
+{
+    clear_screen();
+    printf("========================================\n");
+    printf("              GAME OVER                 \n");
+    printf("========================================\n\n");
+    printf("As trevas te consumiram...\n");
+    printf("ZOTHRAK ri nas profundezas.\n\n");
+    printf("Mas toda lenda tem uma segunda chance.\n\n");
+    press_enter();
+}
+
+/* ============================================================
+ *  LOOP DO JOGO
+ * ============================================================ */
+static void game_loop(void)
+{
+    char input;
+    render_game();
+
+    while (game_running &&
+           current_phase >= PHASE_VILA &&
+           current_phase <= PHASE_FLOOR3)
+    {
+        printf("\n> ");
+        fflush(stdout);
+        input = get_char();
+
+        switch (input) {
+            case 'w': move_player(-1,  0, DIR_UP);    break;
+            case 's': move_player( 1,  0, DIR_DOWN);  break;
+            case 'a': move_player( 0, -1, DIR_LEFT);  break;
+            case 'd': move_player( 0,  1, DIR_RIGHT); break;
+            case 'i': do_interact(); break;
+            case 'o': do_attack();   break;
+            case 'q':
+                printf("Deseja sair? (s/n): ");
+                fflush(stdout);
+                if (get_char() == 's') { game_running = 0; return; }
+                break;
+            default:
+                printf("[Tecla invalida. Use w/a/s/d/i/o/q]\n");
+                break;
+        }
+
+        if (current_phase >= PHASE_FLOOR1 && current_phase <= PHASE_FLOOR3)
+            update_monsters();
+
+        if (current_phase == PHASE_GAMEOVER || current_phase == PHASE_WIN)
+            break;
+
+        render_game();
+    }
+}
+
+/* ============================================================
+ *  MENU PRINCIPAL [R12-R14]
+ * ============================================================ */
+static void show_menu(void)
+{
+    char c;
+    while (1) {
+        clear_screen();
+        printf("========================================\n");
+        printf("         A LENDA DAS TREVAS             \n");
+        printf("       Dungeon Crawler em C             \n");
+        printf("========================================\n\n");
+        printf("  1. Jogar\n");
+        printf("  2. Tutorial\n");
+        printf("  3. Sair\n\n");
+        printf("Escolha: ");
+        fflush(stdout);
+        c = get_char();
+
+        switch (c) {
+            case '1':
+                current_phase = PHASE_VILA;
+                build_vila();
+                game_running = 1;
+                game_loop();
+                if      (current_phase == PHASE_WIN)     show_victory();
+                else if (current_phase == PHASE_GAMEOVER) show_gameover();
+                break;
+            case '2':
+                show_tutorial();
+                break;
+            case '3':
+                show_credits();
+                return;
+            default:
+                printf("[Opcao invalida]\n");
+                press_enter();
+        }
+    }
+}
+
+/* ============================================================
+ *  MAIN
+ * ============================================================ */
+int main(void)
+{
+    srand((unsigned int)time(NULL));
+    current_phase = PHASE_MENU;
+    game_running  = 0;
+    show_menu();
+    printf("Ate a proxima aventura!\n");
+    return 0;
+}
